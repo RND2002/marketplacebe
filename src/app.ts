@@ -32,7 +32,7 @@ app.use(
 )
 
 // Webhook parser before JSON body parser
-app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }))
+app.use(['/api/v1/payments/webhook', '/payments/webhook'], express.raw({ type: 'application/json' }))
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -62,6 +62,7 @@ apiRouter.use('/notifications', notificationsRoutes)
 apiRouter.use('/admin', adminRoutes)
 
 app.use('/api/v1', apiRouter)
+app.use('/', apiRouter)
 
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
