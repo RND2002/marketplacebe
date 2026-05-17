@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ----------------------------------------------------------------
+// ENUMS
+// ----------------------------------------------------------------
+enum UserRole {
+  customer
+  provider
+  admin
+
+  @@map("user_role")
+}
+
+enum ServiceCategory {
+  electrician
+  plumber
+  ac_repair
+
+  @@map("service_category")
+}
+
+enum JobType {
+  fixed
+  assessment
+
+  @@map("job_type")
+}
+
+enum UrgencyType {
+  emergency
+  today
+  scheduled
+
+  @@map("urgency_type")
+}
+
+enum JobStatus {
+  open
+  offered
+  confirmed
+  in_progress
+  completed
+  cancelled
+
+  @@map("job_status")
+}
+
+enum OfferStatus {
+  pending
+  accepted
+  declined
+  countered
+  withdrawn
+  visit_requested
+  visit_confirmed
+  visit_completed
+
+  @@map("offer_status")
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+  failed
+
+  @@map("payment_status")
+}
+
+enum ProviderStatus {
+  pending_review
+  active
+  suspended
+  banned
+
+  @@map("provider_status")
+}
+
+// ----------------------------------------------------------------
+// MODELS
+// ----------------------------------------------------------------
+
+model Profile {
+  id             String    @id @db.Uuid // references auth.users(id)
+  role           UserRole  @default(customer)
+  fullName       String    @map("full_name")
+  phone          String    @unique
+  phoneVerified  Boolean?  @default(false) @map("phone_verified")
+  avatarUrl      String?   @map("avatar_url")
+  createdAt      DateTime? @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt      DateTime? @default(now()) @db.Timestamptz(6) @map("updated_at")
+
+  // Relations
+  providerProfile      ProviderProfile?
+  jobsCustomer         Job[]                 @relation("JobCustomer")
+  jobsCancelled        Job[]                 @relation("JobCancelledBy")
+  jobsVisitRequested   Job[]                 @relation("JobVisitRequestedBy")
+  offers               Offer[]               @relation("OfferProvider")
+  paymentsAsPayer      Payment[]             @relation("PaymentPayer")
+  paymentsAsPayee      Payment[]             @relation("PaymentPayee")
+  reviewsAsCustomer    Review[]              @relation("ReviewCustomer")
+  reviewsAsProvider    Review[]              @relation("ReviewProvider")
+  notifications        Notification[]        @relation("NotificationUser")
+  documents            ProviderDocument[]    @relation("ProviderDocument")
+  jobNotifications     JobProviderNotification[] @relation("JPNProvider")
+  adminLogs            AdminLog[]            @relation("AdminLogAdmin")
+
+  @@map("profiles")
+}
+
+model ProviderProfile {
+  id                String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId            String          @unique @map("user_id") @db.Uuid
+  status            ProviderStatus? @default(pending_review)
+  aadhaarNumber     String?         @map("aadhaar_number")
+  aadhaarVerified   Boolean?        @default(false) @map("aadhaar_verified")
+  upiId             String?         @map("upi_id")
+  bio               String?
+  yearsExperience   Int?            @default(0) @map("years_experience")
+  isAvailable       Boolean?        @default(false) @map("is_available")
+  categories        ServiceCategory[]
+  // location is ignored in Prisma if it uses PostGIS geography type without Unsupported
+  location          Unsupported("geography(point, 4326)")?
+  locationUpdatedAt DateTime?       @db.Timestamptz(6) @map("location_updated_at")
+  totalJobs         Int?            @default(0) @map("total_jobs")
+  ratingSum         Decimal?        @default(0) @db.Decimal @map("rating_sum")
+  ratingCount       Int?            @default(0) @map("rating_count")
+  ratingAvg         Decimal?        @default(dbgenerated()) @db.Decimal @map("rating_avg") // generated always as stored
+  responseRate      Decimal?        @default(100) @db.Decimal @map("response_rate")
+  cancellationCount Int?            @default(0) @map("cancellation_count")
+  serviceAreas      String[]        @map("service_areas")
+  createdAt         DateTime?       @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt         DateTime?       @default(now()) @db.Timestamptz(6) @map("updated_at")
+
+  profile           Profile         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("provider_profiles")
+}
+
+model Service {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  category        ServiceCategory
+  name            String
+  description     String?
+  jobType         JobType         @map("job_type")
+  fixedPrice      Decimal?        @db.Decimal @map("fixed_price")
+  visitingCharge  Decimal?        @db.Decimal @map("visiting_charge")
+  minPrice        Decimal         @default(50) @db.Decimal @map("min_price")
+  suggestedMin    Decimal?        @db.Decimal @map("suggested_min")
+  suggestedMax    Decimal?        @db.Decimal @map("suggested_max")
+  icon            String?
+  isActive        Boolean?        @default(true) @map("is_active")
+  displayOrder    Int?            @default(0) @map("display_order")
+  createdAt       DateTime?       @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  jobs            Job[]           @relation("JobService")
+
+  @@map("services")
+}
+
+model Job {
+  id                 String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customerId         String          @map("customer_id") @db.Uuid
+  serviceId          String          @map("service_id") @db.Uuid
+  category           ServiceCategory
+  jobType            JobType         @map("job_type")
+  description        String?
+  photoUrls          String[]        @default([]) @map("photo_urls")
+  budget             Decimal?        @db.Decimal
+  urgency            UrgencyType
+  scheduledAt        DateTime?       @db.Timestamptz(6) @map("scheduled_at")
+  location           Unsupported("geography(point, 4326)")
+  address            String
+  visitingCharge     Decimal?        @db.Decimal @map("visiting_charge")
+  visitingChargePaid Boolean?        @default(false) @map("visiting_charge_paid")
+  agreedPrice        Decimal?        @db.Decimal @map("agreed_price")
+  finalPrice         Decimal?        @db.Decimal @map("final_price")
+  status             JobStatus?      @default(open)
+  acceptedOfferId    String?         @map("accepted_offer_id") @db.Uuid
+  partsRequested     Boolean?        @default(false) @map("parts_requested")
+  partsDescription   String?         @map("parts_description")
+  partsCost          Decimal?        @db.Decimal @map("parts_cost")
+  partsApproved      Boolean?        @default(false) @map("parts_approved")
+  createdAt          DateTime?       @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt          DateTime?       @default(now()) @db.Timestamptz(6) @map("updated_at")
+  confirmedAt        DateTime?       @db.Timestamptz(6) @map("confirmed_at")
+  startedAt          DateTime?       @db.Timestamptz(6) @map("started_at")
+  completedAt        DateTime?       @db.Timestamptz(6) @map("completed_at")
+  cancelledAt        DateTime?       @db.Timestamptz(6) @map("cancelled_at")
+  cancellationReason String?         @map("cancellation_reason")
+  cancelledById      String?         @map("cancelled_by") @db.Uuid
+  visitRequestedById  String?         @map("visit_requested_by") @db.Uuid
+  visitRequestedAt    DateTime?       @db.Timestamptz(6) @map("visit_requested_at")
+  visitConfirmedAt    DateTime?       @db.Timestamptz(6) @map("visit_confirmed_at")
+  visitCompletedAt    DateTime?       @db.Timestamptz(6) @map("visit_completed_at")
+  siteQuote           Decimal?        @db.Decimal @map("site_quote")
+  siteQuoteSubmittedAt DateTime?      @db.Timestamptz(6) @map("site_quote_submitted_at")
+
+  customer           Profile         @relation("JobCustomer", fields: [customerId], references: [id])
+  service            Service         @relation("JobService", fields: [serviceId], references: [id])
+  cancelledBy        Profile?        @relation("JobCancelledBy", fields: [cancelledById], references: [id])
+  visitRequestedBy    Profile?        @relation("JobVisitRequestedBy", fields: [visitRequestedById], references: [id])
+  acceptedOffer      Offer?          @relation("JobAcceptedOffer", fields: [acceptedOfferId], references: [id])
+  
+  offers             Offer[]         @relation("OfferJob")
+  payments           Payment[]       @relation("PaymentJob")
+  reviews            Review?         @relation("ReviewJob")
+  jobNotifications   JobProviderNotification[] @relation("JPNJob")
+
+  @@map("jobs")
+}
+
+model Offer {
+  id           String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  jobId        String       @map("job_id") @db.Uuid
+  providerId   String       @map("provider_id") @db.Uuid
+  price        Decimal?     @db.Decimal
+  note         String?
+  status       OfferStatus? @default(pending)
+  isVisitRequest Boolean?   @default(false) @map("is_visit_request")
+  visitNote    String?      @map("visit_note")
+  siteQuote    Decimal?     @db.Decimal @map("site_quote")
+  siteQuoteNote String?     @map("site_quote_note")
+  siteQuoteSubmittedAt DateTime? @db.Timestamptz(6) @map("site_quote_submitted_at")
+  counterRound Int?         @default(0) @map("counter_round")
+  counterPrice Decimal?     @db.Decimal @map("counter_price")
+  counterNote  String?      @map("counter_note")
+  finalPrice   Decimal?     @db.Decimal @map("final_price")
+  createdAt    DateTime?    @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt    DateTime?    @default(now()) @db.Timestamptz(6) @map("updated_at")
+
+  job          Job          @relation("OfferJob", fields: [jobId], references: [id], onDelete: Cascade)
+  provider     Profile      @relation("OfferProvider", fields: [providerId], references: [id])
+
+  acceptedForJobs Job[]     @relation("JobAcceptedOffer")
+
+  @@unique([jobId, providerId])
+  @@map("offers")
+}
+
+model Payment {
+  id                String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  jobId             String         @map("job_id") @db.Uuid
+  payerId           String         @map("payer_id") @db.Uuid
+  payeeId           String?        @map("payee_id") @db.Uuid
+  amount            Decimal        @db.Decimal
+  type              String
+  status            PaymentStatus? @default(pending)
+  razorpayOrderId   String?        @map("razorpay_order_id")
+  razorpayPaymentId String?        @map("razorpay_payment_id")
+  razorpaySignature String?        @map("razorpay_signature")
+  commissionRate    Decimal?       @default(12) @db.Decimal @map("commission_rate")
+  commissionAmount  Decimal?       @db.Decimal @map("commission_amount")
+  providerPayout    Decimal?       @db.Decimal @map("provider_payout")
+  createdAt         DateTime?      @default(now()) @db.Timestamptz(6) @map("created_at")
+  paidAt            DateTime?      @db.Timestamptz(6) @map("paid_at")
+
+  job               Job            @relation("PaymentJob", fields: [jobId], references: [id])
+  payer             Profile        @relation("PaymentPayer", fields: [payerId], references: [id])
+  payee             Profile?       @relation("PaymentPayee", fields: [payeeId], references: [id])
+
+  @@map("payments")
+}
+
+model Review {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  jobId      String    @unique @map("job_id") @db.Uuid
+  customerId String    @map("customer_id") @db.Uuid
+  providerId String    @map("provider_id") @db.Uuid
+  rating     Int
+  comment    String?
+  tags       String[]
+  createdAt  DateTime? @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  job        Job       @relation("ReviewJob", fields: [jobId], references: [id])
+  customer   Profile   @relation("ReviewCustomer", fields: [customerId], references: [id])
+  provider   Profile   @relation("ReviewProvider", fields: [providerId], references: [id])
+
+  @@map("reviews")
+}
+
+model Notification {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  type       String
+  title      String
+  body       String
+  data       Json?
+  isRead     Boolean?  @default(false) @map("is_read")
+  createdAt  DateTime? @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  user       Profile   @relation("NotificationUser", fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model ProviderDocument {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  providerId String    @map("provider_id") @db.Uuid
+  type       String
+  url        String
+  verified   Boolean?  @default(false)
+  uploadedAt DateTime? @default(now()) @db.Timestamptz(6) @map("uploaded_at")
+
+  provider   Profile   @relation("ProviderDocument", fields: [providerId], references: [id])
+
+  @@map("provider_documents")
+}
+
+model JobProviderNotification {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  jobId      String    @map("job_id") @db.Uuid
+  providerId String    @map("provider_id") @db.Uuid
+  notifiedAt DateTime? @default(now()) @db.Timestamptz(6) @map("notified_at")
+
+  job        Job       @relation("JPNJob", fields: [jobId], references: [id])
+  provider   Profile   @relation("JPNProvider", fields: [providerId], references: [id])
+
+  @@unique([jobId, providerId])
+  @@map("job_provider_notifications")
+}
+
+model AdminLog {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  adminId    String    @map("admin_id") @db.Uuid
+  action     String
+  targetType String?   @map("target_type")
+  targetId   String?   @map("target_id") @db.Uuid
+  notes      String?
+  createdAt  DateTime? @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  admin      Profile   @relation("AdminLogAdmin", fields: [adminId], references: [id])
+
+  @@map("admin_logs")
+}

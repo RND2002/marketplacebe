@@ -1,0 +1,131 @@
+# ================================
+# FIXKAR BACKEND — .gitignore
+# ================================
+
+
+# --------------------------------
+# Environment variables
+# NEVER commit these
+# --------------------------------
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+
+# --------------------------------
+# Dependencies
+# --------------------------------
+node_modules/
+.pnp
+.pnp.js
+
+
+# --------------------------------
+# Build output
+# --------------------------------
+dist/
+build/
+out/
+
+
+# --------------------------------
+# TypeScript
+# --------------------------------
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+
+# --------------------------------
+# Logs
+# --------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# --------------------------------
+# Runtime
+# --------------------------------
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+
+# --------------------------------
+# Testing
+# --------------------------------
+coverage/
+.nyc_output/
+jest-results/
+
+
+# --------------------------------
+# OS files
+# --------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+
+# --------------------------------
+# IDE / Editor
+# --------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+# --------------------------------
+# Prisma
+# --------------------------------
+# Keep schema.prisma and migrations
+# Ignore generated client (regenerated on deploy)
+node_modules/.prisma/
+prisma/dev.db
+prisma/dev.db-journal
+*.db
+*.db-journal
+
+
+# --------------------------------
+# Uploads / temp files
+# --------------------------------
+uploads/
+tmp/
+temp/
+
+
+# --------------------------------
+# Package manager locks
+# Commit only ONE of these
+# If using npm — keep package-lock.json
+# If using yarn — keep yarn.lock
+# --------------------------------
+yarn.lock
+# package-lock.json   ← uncomment if using yarn
+
+
+# --------------------------------
+# Misc
+# --------------------------------
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
