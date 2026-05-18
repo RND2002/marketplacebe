@@ -3,8 +3,7 @@ import { z } from 'zod'
 export const registerSchema = z.object({
   email: z.string().email('Valid email required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  full_name: z.string().min(2, 'Full name required'),
-  phone: z.string().regex(/^[6-9]\d{9}$/, 'Valid 10 digit Indian mobile number required'),
+  role: z.enum(['customer', 'provider']).default('customer').optional(),
 })
 
 export const loginSchema = z.object({
@@ -27,6 +26,7 @@ export const resetPasswordSchema = z.object({
 
 export const updateProfileSchema = z.object({
   full_name: z.string().min(2).optional(),
+  phone: z.string().regex(/^[6-9]\d{9}$/, 'Valid 10 digit Indian mobile number required').optional(),
   avatar_url: z.string().url().optional(),
 })
 

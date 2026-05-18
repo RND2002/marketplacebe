@@ -154,14 +154,55 @@ export const updateLocation = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
   const userId = req.user!.id
-  const { bio, service_areas, upi_id, years_experience } = req.body
+  const { bio, service_areas, upi_id, years_experience, categories, aadhaar_number } = req.body
 
   const updated = await prisma.providerProfile.update({
     where: { userId },
-    data: { bio, serviceAreas: service_areas, upiId: upi_id, yearsExperience: years_experience }
+    data: { 
+      bio, 
+      serviceAreas: service_areas, 
+      upiId: upi_id, 
+      yearsExperience: years_experience,
+      categories: categories as any,
+      aadhaarNumber: aadhaar_number
+    }
   })
 
   return ApiResponse.success(res, 'Profile updated', updated)
+}
+
+export const submitReview = async (req: Request, res: Response) => {
+  const userId = req.user!.id
+
+  const provider = await prisma.providerProfile.findUnique({
+    where: { userId },
+    include: { profile: true }
+  })
+
+  if (!provider) {
+    throw new NotFoundError('Provider profile not found')
+  }
+
+  // Validate onboarding fields
+  if (!provider.profile.fullName || provider.profile.fullName.trim() === '' || !provider.profile.phone || provider.profile.phone.startsWith('temp_')) {
+    throw new AppError('Personal details (name, phone) must be completed first', 400)
+  }
+  if (!provider.categories || provider.categories.length === 0) {
+    throw new AppError('At least one service category must be selected', 400)
+  }
+  if (!provider.serviceAreas || provider.serviceAreas.length === 0) {
+    throw new AppError('At least one service area must be served', 400)
+  }
+  if (!provider.aadhaarNumber || !provider.upiId) {
+    throw new AppError('Verification details (Aadhaar, UPI) must be completed first', 400)
+  }
+
+  const updated = await prisma.providerProfile.update({
+    where: { userId },
+    data: { status: 'active' }
+  })
+
+  return ApiResponse.success(res, 'Profile submitted and approved', updated)
 }
 
 export const uploadDocument = async (req: Request, res: Response) => {

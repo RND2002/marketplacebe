@@ -26,13 +26,22 @@ export const authenticate = async (
     }
 
     // Fetch role from profiles table via Prisma
-    const profile = await prisma.profile.findUnique({
+    let profile = await prisma.profile.findUnique({
       where: { id: user.id },
       select: { id: true, role: true, phone: true },
     })
 
     if (!profile) {
-      throw new UnauthorizedError('User profile not found')
+      // Self-healing: If Supabase auth user exists but PostgreSQL profile doesn't, create it!
+      profile = await prisma.profile.create({
+        data: {
+          id: user.id,
+          role: (user.user_metadata?.role as any) || 'customer',
+          fullName: user.user_metadata?.full_name || ' ',
+          phone: user.user_metadata?.phone || `temp_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+        },
+        select: { id: true, role: true, phone: true },
+      })
     }
 
     // Attach to request

@@ -12,10 +12,12 @@ export const locationSchema = z.object({
 })
 
 export const updateProfileSchema = z.object({
-  bio: z.string().optional(),
+  bio: z.string().max(200).optional(),
   service_areas: z.array(z.string()).optional(),
   upi_id: z.string().optional(),
   years_experience: z.number().optional(),
+  categories: z.array(z.enum(['electrician', 'plumber', 'ac_repair'])).optional(),
+  aadhaar_number: z.string().regex(/^\d{12}$/, 'Valid 12-digit Aadhaar number required').optional(),
 })
 
 export const uploadDocumentSchema = z.object({

@@ -91,8 +91,8 @@ enum ProviderStatus {
 model Profile {
   id             String    @id @db.Uuid // references auth.users(id)
   role           UserRole  @default(customer)
-  fullName       String    @map("full_name")
-  phone          String    @unique
+  fullName       String?   @map("full_name")
+  phone          String?   @unique
   phoneVerified  Boolean?  @default(false) @map("phone_verified")
   avatarUrl      String?   @map("avatar_url")
   createdAt      DateTime? @default(now()) @db.Timestamptz(6) @map("created_at")

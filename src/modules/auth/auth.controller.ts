@@ -7,13 +7,14 @@ import { createClient } from '@supabase/supabase-js'
 import { env } from '../../config/env'
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password, full_name, phone } = req.body
-  // console.log(req.body, "sjsjsj")
+  const { email, password, full_name, phone, role = 'customer' } = req.body
 
-  // 1. Check phone not already registered
-  const existingPhone = await prisma.profile.findUnique({ where: { phone } })
-  if (existingPhone) {
-    throw new ConflictError('Phone number already registered')
+  // 1. Check phone not already registered (only if provided)
+  if (phone) {
+    const existingPhone = await prisma.profile.findUnique({ where: { phone } })
+    if (existingPhone) {
+      throw new ConflictError('Phone number already registered')
+    }
   }
 
   // 2. Create user in Supabase Auth
@@ -21,7 +22,11 @@ export const register = async (req: Request, res: Response) => {
     email,
     password,
     email_confirm: true, // skip email confirmation
-    user_metadata: { full_name, phone, role: 'customer' },
+    user_metadata: { 
+      full_name: full_name || null, 
+      phone: phone || null, 
+      role: role 
+    },
   })
 
   if (authError || !authData.user) {
@@ -35,11 +40,24 @@ export const register = async (req: Request, res: Response) => {
   const profile = await prisma.profile.create({
     data: {
       id: authData.user.id,
-      role: 'customer',
-      fullName: full_name,
-      phone,
+      role: role as any,
+      fullName: full_name || ' ',
+      phone: phone || `temp_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
     },
   })
+
+  // If registering as a provider, create their empty provider profile
+  if (role === 'provider') {
+    await prisma.providerProfile.create({
+      data: {
+        userId: authData.user.id,
+        status: 'pending_review',
+        categories: [],
+        serviceAreas: [],
+        isAvailable: false,
+      }
+    })
+  }
 
   // 4. Send welcome WhatsApp via Gupshup (TODO in notifications module)
 
@@ -63,22 +81,22 @@ export const login = async (req: Request, res: Response) => {
     throw new UnauthorizedError('Invalid email or password')
   }
 
-  const profile = await prisma.profile.findUnique({
+  let profile = await prisma.profile.findUnique({
     where: { id: data.user.id },
     include: { providerProfile: true },
   })
 
   if (!profile) {
-    throw new UnauthorizedError('User profile not found')
-  }
-
-  if (profile.role === 'provider' && profile.providerProfile) {
-    if (profile.providerProfile.status === 'pending_review') {
-      throw new AppError('Your account is pending approval. We will notify you on WhatsApp.', 403)
-    }
-    if (profile.providerProfile.status === 'suspended') {
-      throw new AppError('Your account has been suspended.', 403)
-    }
+    // Self-healing: If Supabase auth user exists but PostgreSQL profile doesn't, create it!
+    profile = await prisma.profile.create({
+      data: {
+        id: data.user.id,
+        role: (data.user.user_metadata?.role as any) || 'customer',
+        fullName: data.user.user_metadata?.full_name || ' ',
+        phone: data.user.user_metadata?.phone || `temp_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      },
+      include: { providerProfile: true },
+    })
   }
 
   return ApiResponse.success(res, 'Login successful', {
@@ -127,20 +145,38 @@ export const getMe = async (req: Request, res: Response) => {
 
 export const updateMe = async (req: Request, res: Response) => {
   const userId = req.user!.id
-  const { full_name, avatar_url } = req.body
+  const { full_name, phone, avatar_url } = req.body
+
+  // Check phone uniqueness if phone is being updated
+  if (phone) {
+    const existing = await prisma.profile.findFirst({
+      where: {
+        phone,
+        NOT: { id: userId }
+      }
+    })
+    if (existing) {
+      throw new ConflictError('This phone number is already registered')
+    }
+  }
 
   const profile = await prisma.profile.update({
     where: { id: userId },
     data: {
-      fullName: full_name,
-      avatarUrl: avatar_url,
+      ...(full_name !== undefined && { fullName: full_name }),
+      ...(phone !== undefined && { phone }),
+      ...(avatar_url !== undefined && { avatarUrl: avatar_url }),
     },
   })
 
-  // Update user metadata in Auth if name changes
-  if (full_name) {
+  // Update user metadata in Auth if name or phone changes
+  if (full_name !== undefined || phone !== undefined) {
+    const metaUpdates: Record<string, string | null> = {};
+    if (full_name !== undefined) metaUpdates.full_name = full_name;
+    if (phone !== undefined) metaUpdates.phone = phone;
+
     await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { full_name }
+      user_metadata: metaUpdates
     })
   }
 
