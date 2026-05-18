@@ -289,7 +289,7 @@ export const updateJobStatus = async (req: Request, res: Response) => {
   })
 
   if (status === 'completed') {
-    await whatsappService.sendJobCompleted(updatedJob.customer.phone, updatedJob)
+    await whatsappService.sendJobCompleted(updatedJob.customer.phone || '', updatedJob)
   }
 
   return ApiResponse.success(res, 'Job status updated', updatedJob)
@@ -340,7 +340,7 @@ export const requestParts = async (req: Request, res: Response) => {
     }
   })
 
-  await whatsappService.sendPartsRequest(job.customer.phone, description, cost)
+  await whatsappService.sendPartsRequest(job.customer.phone || '', description, cost)
 
   // Need FCM token for push (we mocked this)
 

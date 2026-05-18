@@ -109,11 +109,11 @@ export const makeOffer = async (req: Request, res: Response) => {
     })
 
     if (job.jobType === 'fixed') {
-      await whatsappService.sendOfferAccepted(offer.provider.phone, { ...job, agreedPrice: price } as any, job.customer.phone)
-      await whatsappService.sendJobConfirmed(job.customer.phone, offer.provider.fullName)
+      await whatsappService.sendOfferAccepted(offer.provider.phone || '', { ...job, agreedPrice: price } as any, job.customer.phone || '')
+      await whatsappService.sendJobConfirmed(job.customer.phone || '', offer.provider.fullName || '')
       await notifyUser(job.customerId, 'job_confirmed', 'Job confirmed!', `${offer.provider.fullName} confirmed for fixed price ₹${price}`)
     } else {
-      await whatsappService.sendOfferReceived(job.customer.phone, {
+      await whatsappService.sendOfferReceived(job.customer.phone || '', {
         providerName: providerProfile.profile.fullName,
         price,
         note
@@ -153,7 +153,7 @@ export const makeOffer = async (req: Request, res: Response) => {
     })
 
     const msg = `${providerProfile.profile.fullName} wants to visit and assess your ${job.service.name} problem`
-    await whatsappService.sendWhatsApp(job.customer.phone, `🔍 Site Visit Request!\n${msg}\nVisiting charge of ₹${job.service.visitingCharge || 99} applies. App open karke confirm karein.`)
+    await whatsappService.sendWhatsApp(job.customer.phone || '', `🔍 Site Visit Request!\n${msg}\nVisiting charge of ₹${job.service.visitingCharge || 99} applies. App open karke confirm karein.`)
     await notifyUser(job.customerId, 'visit_requested', 'Site Visit Requested', msg)
 
     return ApiResponse.success(res, 'Site visit request submitted successfully', offer, 201)
@@ -204,8 +204,8 @@ export const acceptOffer = async (req: Request, res: Response) => {
   })
 
   // Revealing contact details
-  await whatsappService.sendWhatsApp(offer.provider.phone, `🎉 Badhai ho! ${offer.job.customer.fullName} ne aapka offer accept kar liya!\nService: ${offer.job.service.name}\nAddress: ${offer.job.address}\nAgreed price: ₹${agreedPrice}\nCustomer phone: ${offer.job.customer.phone}\nKripya reach out karein aur arrival time confirm karein.`)
-  await whatsappService.sendWhatsApp(offer.job.customer.phone, `✅ ${offer.provider.fullName} ka offer confirm ho gaya!\nWoh jald hi aapke paas aayenge.\nProvider phone: ${offer.provider.phone}\nAgreed price: ₹${agreedPrice}`)
+  await whatsappService.sendWhatsApp(offer.provider.phone || '', `🎉 Badhai ho! ${offer.job.customer.fullName} ne aapka offer accept kar liya!\nService: ${offer.job.service.name}\nAddress: ${offer.job.address}\nAgreed price: ₹${agreedPrice}\nCustomer phone: ${offer.job.customer.phone || ''}\nKripya reach out karein aur arrival time confirm karein.`)
+  await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `✅ ${offer.provider.fullName} ka offer confirm ho gaya!\nWoh jald hi aapke paas aayenge.\nProvider phone: ${offer.provider.phone || ''}\nAgreed price: ₹${agreedPrice}`)
 
   await notifyUser(offer.providerId, 'offer_accepted', 'Offer Accepted!', `${offer.job.customer.fullName} accepted your offer for ₹${agreedPrice}`)
   await notifyUser(offer.job.customerId, 'job_confirmed', 'Job Confirmed!', `Job confirmed at ₹${agreedPrice} with ${offer.provider.fullName}`)
@@ -265,7 +265,7 @@ export const counterOffer = async (req: Request, res: Response) => {
     }
   })
 
-  await whatsappService.sendWhatsApp(offer.provider.phone, `💬 Counter Offer Received!\n${offer.job.customer.fullName} ne counter offer bheja!\nAapka offer: ₹${offer.price}\nUnka counter: ₹${counter_price}\nApp mein accept ya decline karein.`)
+  await whatsappService.sendWhatsApp(offer.provider.phone || '', `💬 Counter Offer Received!\n${offer.job.customer.fullName} ne counter offer bheja!\nAapka offer: ₹${offer.price}\nUnka counter: ₹${counter_price}\nApp mein accept ya decline karein.`)
   await notifyUser(offer.providerId, 'counter_received', 'Counter Offer Received', `${offer.job.customer.fullName} countered at ₹${counter_price}`)
 
   return ApiResponse.success(res, 'Counter offer sent successfully', updatedOffer)
@@ -312,8 +312,8 @@ export const counterRespond = async (req: Request, res: Response) => {
       return uj
     })
 
-    await whatsappService.sendWhatsApp(offer.provider.phone, `🎉 Badhai ho! Job confirm ho gaya!\nCustomer: ${offer.job.customer.fullName}\nAddress: ${offer.job.address}\nAgreed price: ₹${agreedPrice}\nCustomer phone: ${offer.job.customer.phone}`)
-    await whatsappService.sendWhatsApp(offer.job.customer.phone, `✅ ${offer.provider.fullName} ne counter offer accept kar liya!\nWoh jald hi aapse contact karenge.\nProvider phone: ${offer.provider.phone}\nAgreed price: ₹${agreedPrice}`)
+    await whatsappService.sendWhatsApp(offer.provider.phone || '', `🎉 Badhai ho! Job confirm ho gaya!\nCustomer: ${offer.job.customer.fullName}\nAddress: ${offer.job.address}\nAgreed price: ₹${agreedPrice}\nCustomer phone: ${offer.job.customer.phone || ''}`)
+    await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `✅ ${offer.provider.fullName} ne counter offer accept kar liya!\nWoh jald hi aapse contact karenge.\nProvider phone: ${offer.provider.phone || ''}\nAgreed price: ₹${agreedPrice}`)
 
     await notifyUser(offer.providerId, 'offer_accepted', 'Counter Accepted!', `Job confirmed at ₹${agreedPrice}`)
     await notifyUser(offer.job.customerId, 'job_confirmed', 'Counter Accepted!', `${offer.provider.fullName} accepted your counter of ₹${agreedPrice}`)
@@ -325,7 +325,7 @@ export const counterRespond = async (req: Request, res: Response) => {
       data: { status: 'declined' }
     })
 
-    await whatsappService.sendWhatsApp(offer.job.customer.phone, `❌ ${offer.provider.fullName} ne counter offer decline kar diya. Doosre offers check karein.`)
+    await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `❌ ${offer.provider.fullName} ne counter offer decline kar diya. Doosre offers check karein.`)
     await notifyUser(offer.job.customerId, 'counter_declined', 'Counter Declined', `${offer.provider.fullName} declined your counter offer.`)
 
     return ApiResponse.success(res, 'Counter offer declined', updatedOffer)
@@ -468,8 +468,8 @@ export const confirmVisitPayment = async (req: Request, res: Response) => {
   })
 
   const msgText = `Visit confirmed! ${offer.job.customer.fullName} ne ₹${payment.amount} visiting charge pay kar diya hai.`
-  await whatsappService.sendWhatsApp(offer.provider.phone, `✅ Visit Confirmed!\n${msgText}\nLocation: ${offer.job.address}\nKripya inspect karke app mein quote submit karein. Phone: ${offer.job.customer.phone}`)
-  await whatsappService.sendWhatsApp(offer.job.customer.phone, `✅ Visit confirmed! ${offer.provider.fullName} aapke ghar inspect karne aayenge. Paid ₹${payment.amount}`)
+  await whatsappService.sendWhatsApp(offer.provider.phone || '', `✅ Visit Confirmed!\n${msgText}\nLocation: ${offer.job.address}\nKripya inspect karke app mein quote submit karein. Phone: ${offer.job.customer.phone || ''}`)
+  await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `✅ Visit confirmed! ${offer.provider.fullName} aapke ghar inspect karne aayenge. Paid ₹${payment.amount}`)
 
   await notifyUser(offer.providerId, 'visit_confirmed', 'Site Visit Confirmed!', msgText)
   await notifyUser(offer.job.customerId, 'visit_confirmed', 'Site Visit Booked', `${offer.provider.fullName} is coming to inspect.`)
@@ -519,7 +519,7 @@ export const submitSiteQuote = async (req: Request, res: Response) => {
   })
 
   const remaining = site_quote - Number(offer.job.visitingCharge || 99)
-  await whatsappService.sendWhatsApp(offer.job.customer.phone, `🔍 Site Quote Received!\n${offer.provider.fullName} ne visit ke baad quote diya hai.\nQuote: ₹${site_quote}\nVisiting Charge: ₹${offer.job.visitingCharge || 99} paid ✅\nRemaining: ₹${remaining}\nApp mein accept ya decline karein.`)
+  await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `🔍 Site Quote Received!\n${offer.provider.fullName} ne visit ke baad quote diya hai.\nQuote: ₹${site_quote}\nVisiting Charge: ₹${offer.job.visitingCharge || 99} paid ✅\nRemaining: ₹${remaining}\nApp mein accept ya decline karein.`)
   await notifyUser(offer.job.customerId, 'site_quote_submitted', 'Site Quote Submitted', `${offer.provider.fullName} quoted ₹${site_quote} for completion.`)
 
   return ApiResponse.success(res, 'Site quote submitted successfully', updatedOffer)
@@ -568,8 +568,8 @@ export const acceptSiteQuote = async (req: Request, res: Response) => {
       return uj
     })
 
-    await whatsappService.sendWhatsApp(offer.provider.phone, `🎉 Quote accepted! Job confirmed!\nCustomer: ${offer.job.customer.fullName}\nPhone: ${offer.job.customer.phone}\nFinal price: ₹${price}`)
-    await whatsappService.sendWhatsApp(offer.job.customer.phone, `✅ Job confirmed at ₹${price} with ${offer.provider.fullName}!`)
+    await whatsappService.sendWhatsApp(offer.provider.phone || '', `🎉 Quote accepted! Job confirmed!\nCustomer: ${offer.job.customer.fullName}\nPhone: ${offer.job.customer.phone || ''}\nFinal price: ₹${price}`)
+    await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `✅ Job confirmed at ₹${price} with ${offer.provider.fullName}!`)
 
     await notifyUser(offer.providerId, 'quote_accepted', 'Site Quote Accepted!', `Job confirmed at ₹${price}`)
     await notifyUser(offer.job.customerId, 'job_confirmed', 'Job Confirmed!', `Job confirmed with ${offer.provider.fullName}`)
@@ -594,8 +594,8 @@ export const acceptSiteQuote = async (req: Request, res: Response) => {
       return uj
     })
 
-    await whatsappService.sendWhatsApp(offer.provider.phone, `❌ Customer ne site quote decline kar diya. Job cancel ho gaya hai.`)
-    await whatsappService.sendWhatsApp(offer.job.customer.phone, `Job cancel ho gaya hai. Visiting charge refundable nahi hai.`)
+    await whatsappService.sendWhatsApp(offer.provider.phone || '', `❌ Customer ne site quote decline kar diya. Job cancel ho gaya hai.`)
+    await whatsappService.sendWhatsApp(offer.job.customer.phone || '', `Job cancel ho gaya hai. Visiting charge refundable nahi hai.`)
 
     await notifyUser(offer.providerId, 'quote_declined', 'Quote Declined', `Customer declined your site quote of ₹${offer.siteQuote}.`)
     await notifyUser(offer.job.customerId, 'job_cancelled', 'Job Cancelled', 'Job cancelled after site quote decline.')

@@ -122,7 +122,7 @@ export const approveProvider = async (req: Request, res: Response) => {
     return p
   })
 
-  await whatsappService.sendProviderApproved(providerProfile.profile.phone, providerProfile.profile.fullName)
+  await whatsappService.sendProviderApproved(providerProfile.profile.phone || '', providerProfile.profile.fullName || '')
 
   return ApiResponse.success(res, 'Provider approved', updated)
 }

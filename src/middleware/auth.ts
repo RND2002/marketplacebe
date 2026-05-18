@@ -49,7 +49,7 @@ export const authenticate = async (
       id: profile.id,
       role: profile.role as UserRole,
       email: user.email ?? '',
-      phone: profile.phone,
+      phone: profile.phone ?? undefined,
     }
 
     next()
